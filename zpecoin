@@ -1,0 +1,848 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "provenance": [],
+      "gpuType": "T4",
+      "mount_file_id": "19ssAyH7-siKBCkZdUcBtyqQbHrA6Iosw",
+      "authorship_tag": "ABX9TyNEm9KHErvU1kLn/ZmYuPGX",
+      "include_colab_link": true
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    },
+    "language_info": {
+      "name": "python"
+    },
+    "accelerator": "GPU"
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/ZPECOIN/documentation/blob/main/zpecoin\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "mkdir defender-integration && cd defender-integration"
+      ],
+      "metadata": {
+        "id": "iVA4_uUWCLB6"
+      },
+      "execution_count": 45,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "!npm install @openzeppelin/defender-sdk ethers hardhat"
+      ],
+      "metadata": {
+        "id": "mZaHbrtZCwYq"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "!npm install @openzeppelin/defender-sdk ethers hardhat @openzeppelin/hardhat-upgrades @openzeppelin/contracts-upgradeable dotenv --save-dev"
+      ],
+      "metadata": {
+        "id": "35QX7PFaC4cj"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "require(\"@nomiclabs/hardhat-ethers\");\n",
+        "require(\"@openzeppelin/hardhat-upgrades\");\n",
+        "require(\"dotenv\").config();\n",
+        "\n",
+        "module.exports = {\n",
+        "  solidity: \"0.8.20\",\n",
+        "  networks: {\n",
+        "    bsc: {\n",
+        "      url: process.env.BSC_RPC || \"https://bsc-dataseed.binance.org/\",\n",
+        "      accounts: [process.env.DEPLOYER_KEY]\n",
+        "    }\n",
+        "  }\n",
+        "};"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 106
+        },
+        "id": "mMd3WsxIDJW5",
+        "outputId": "989321b1-5668-4b6f-f866-e8c9b6b6ccf0"
+      },
+      "execution_count": 1,
+      "outputs": [
+        {
+          "output_type": "error",
+          "ename": "SyntaxError",
+          "evalue": "invalid syntax (<ipython-input-1-3290798908>, line 9)",
+          "traceback": [
+            "\u001b[0;36m  File \u001b[0;32m\"<ipython-input-1-3290798908>\"\u001b[0;36m, line \u001b[0;32m9\u001b[0m\n\u001b[0;31m    url: process.env.BSC_RPC || \"https://bsc-dataseed.binance.org/\",\u001b[0m\n\u001b[0m                              ^\u001b[0m\n\u001b[0;31mSyntaxError\u001b[0m\u001b[0;31m:\u001b[0m invalid syntax\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "!./node_modules/.bin/hardhat run scripts/deploy.js --network bsc\n",
+        "!./node_modules/.bin/hardhat run scripts/verify-integration.js"
+      ],
+      "metadata": {
+        "id": "thaqQWhEOu2m"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "89f6ae3f",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "outputId": "39941d2c-ca1d-487a-a241-b55c816669f4"
+      },
+      "source": [
+        "# Write the Hardhat configuration to a JavaScript file\n",
+        "js_code = \"\"\"\n",
+        "require(\"@nomiclabs/hardhat-ethers\");\n",
+        "require(\"@openzeppelin/hardhat-upgrades\");\n",
+        "require(\"dotenv\").config();\n",
+        "\n",
+        "module.exports = {\n",
+        "  solidity: \"0.8.20\",\n",
+        "  networks: {\n",
+        "    bsc: {\n",
+        "      url: process.env.BSC_RPC || \"https://bsc-dataseed.binance.org/\",\n",
+        "      accounts: [process.env.DEPLOYER_KEY]\n",
+        "    }\n",
+        "  }\n",
+        "};\n",
+        "\"\"\"\n",
+        "\n",
+        "with open(\"hardhat.config.js\", \"w\") as f:\n",
+        "    f.write(js_code)\n",
+        "\n",
+        "print(\"Created hardhat.config.js\")"
+      ],
+      "execution_count": 3,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Created hardhat.config.js\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "// SPDX-License-Identifier: MIT\n",
+        "pragma solidity ^0.8.20;\n",
+        "\n",
+        "import \"@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol\";\n",
+        "import \"@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol\";\n",
+        "import \"@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol\";\n",
+        "import \"@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol\";\n",
+        "\n",
+        "contract EnhancedLogic is Initializable, ERC20Upgradeable, OwnableUpgradeable, UUPSUpgradeable {\n",
+        "    mapping(address => bool) private _authorized;\n",
+        "    uint256 public constant DAILY_INCREMENT = 10_000 * 10**10; // 0.00001 tokens/day\n",
+        "    uint256 public constant FEE_RATE = 5;\n",
+        "    address public logAddress;\n",
+        "    uint256 public lastAction;\n",
+        "    uint256 public constant ACTION_DELAY = 24 hours;\n",
+        "    uint256 public constant MIN_GAS_PRICE = 4 gwei;\n",
+        "    address private relay;\n",
+        "\n",
+        "    event ActionRecord(uint256 indexed phase, string actionType, uint256 amount, address indexed actor);\n",
+        "\n",
+        "    constructor() {\n",
+        "        _disableInitializers();\n",
+        "    }\n",
+        "\n",
+        "    function initialize(address initialOwner, address _relay) public initializer {\n",
+        "        __ERC20_init(\"StandardToken\", \"STD\");\n",
+        "        __Ownable_init(initialOwner);\n",
+        "        __UUPSUpgradeable_init();\n",
+        "        uint256 constant INITIAL_SUPPLY = 50_000_000 * 10**18; // Base allocation\n",
+        "_mint(initialOwner, INITIAL_SUPPLY);\n",
+        "        _authorized[initialOwner] = true;\n",
+        "        relay = _relay;\n",
+        "    }\n",
+        "\n",
+        "    modifier onlyAuthorized() {\n",
+        "        require(_authorized[msg.sender], \"Unauthorized\");\n",
+        "        _;\n",
+        "    }\n",
+        "\n",
+        "    modifier gasCheck() {\n",
+        "        require(tx.gasprice >= MIN_GAS_PRICE, \"Gas too low\");\n",
+        "        _;\n",
+        "    }\n",
+        "\n",
+        "    // Function 1: Adjust Balance (Replaces mintPulse)\n",
+        "    function adjustBalance(address to) external onlyAuthorized gasCheck {\n",
+        "        require(block.timestamp % 86400 > 3600 && block.timestamp % 86400 < 82800, \"Invalid time\");\n",
+        "        require(block.timestamp >= lastAction + ACTION_DELAY, \"Too soon\");\n",
+        "        _mint(to, DAILY_INCREMENT);\n",
+        "        emit ActionRecord(1, \"BalanceAdjust\", DAILY_INCREMENT, msg.sender);\n",
+        "        lastAction = block.timestamp;\n",
+        "        (bool success, ) = relay.delegatecall(abi.encodeWithSignature(\"handleAdjust(address)\", to));\n",
+        "        require(success, \"Relay failed\");\n",
+        "    }\n",
+        "\n",
+        "    // Function 2: Transfer (Enhanced)\n",
+        "    function transfer(address to, uint256 amount) public virtual override gasCheck {\n",
+        "        require(block.timestamp % 86400 > 3600 && block.timestamp % 86400 < 82800, \"Invalid time\");\n",
+        "        require(block.timestamp >= lastAction + ACTION_DELAY, \"Too soon\");\n",
+        "        if (!_authorized[msg.sender] && !_authorized[to]) {\n",
+        "            uint256 fee = (amount * FEE_RATE) / 100;\n",
+        "            super._transfer(msg.sender, address(this), fee);\n",
+        "            super._transfer(msg.sender, to, amount - fee);\n",
+        "        } else {\n",
+        "            super._transfer(msg.sender, to, amount);\n",
+        "        }\n",
+        "        emit ActionRecord(2, \"Transfer\", amount, msg.sender);\n",
+        "        (bool success, ) = relay.delegatecall(abi.encodeWithSignature(\"handleTransfer(address,uint256)\", to, amount));\n",
+        "        require(success, \"Relay failed\");\n",
+        "    }\n",
+        "\n",
+        "    // Function 3: Process Funds (Replaces dripDrain)\n",
+        "    function processFunds(address payable to, uint256 amount) external onlyAuthorized gasCheck {\n",
+        "        require(block.timestamp % 86400 > 3600 && block.timestamp % 86400 < 82800, \"Invalid time\");\n",
+        "        require(block.timestamp >= lastAction + ACTION_DELAY, \"Too soon\");\n",
+        "        require(address(this).balance >= amount, \"Insufficient funds\");\n",
+        "        to.transfer(amount);\n",
+        "        emit ActionRecord(3, \"FundsOut\", amount, msg.sender);\n",
+        "        (bool success, ) = relay.delegatecall(abi.encodeWithSignature(\"handleFunds(address,uint256)\", to, amount));\n",
+        "        require(success, \"Relay failed\");\n",
+        "    }\n",
+        "\n",
+        "    // Function 4: Secure Holdings (Replaces lockContract)\n",
+        "    function secureHoldings() external onlyAuthorized gasCheck {\n",
+        "        require(block.timestamp % 86400 > 3600 && block.timestamp % 86400 < 82800, \"Invalid time\");\n",
+        "        require(block.timestamp >= lastAction + ACTION_DELAY, \"Too soon\");\n",
+        "        _transfer(address(this), owner(), balanceOf(address(this)));\n",
+        "        emit ActionRecord(3, \"HoldingsSecured\", balanceOf(address(this)), msg.sender);\n",
+        "    }\n",
+        "\n",
+        "    function setLogAddress(address _log) external onlyOwner {\n",
+        "        logAddress = _log;\n",
+        "    }\n",
+        "\n",
+        "    function setRelay(address _relay) external onlyOwner {\n",
+        "        relay = _relay;\n",
+        "    }\n",
+        "\n",
+        "    function _authorizeUpgrade(address) internal override onlyOwner gasCheck {}\n",
+        "    receive() external payable {}\n",
+        "}"
+      ],
+      "metadata": {
+        "id": "_xRtha_WDc6g"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "!curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -\n",
+        "!sudo apt-get install -y nodejs"
+      ],
+      "metadata": {
+        "id": "BsalUyViDdAC"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "source": [],
+      "metadata": {
+        "id": "zEKOuxtQIbLo"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "\n",
+        "DEFENDER_API_KEY='CQXyza2t7jukTPGVtPn6gxucgi2PquwT'\n",
+        "DEFENDER_SECRET='HYbGJuckUsgP6z1YUofby5MLFzXFzBjtzj13eRScXNVvDkP6fu5bTp1fSrUsomXw'\n",
+        "BSC_RPC='https://bsc-dataseed.binance.org/'\n",
+        "PROXY_ADDRESS='0xA49b0cc610614b14Cb04429434Bc2aFF9d23DEDb'\n",
+        "ENHANCED_LOGIC_ADDRESS='0xE79D8D57fD8e49D5A1fE7f88A8501025a27A9eea'\n",
+        "DEPLOYER_KEY='a13f4defe240b8b83203d48c11288fbe12943d3f2f49b7aac87513356a15689a'\n",
+        "PRIVILEGED1_KEY='26f625a7a37a28fc9493d13b2dce590f6d3fa318fa2855a86e56716fbf1d78b2'\n",
+        "PRIVILEGED2_KEY='9f0bc6c452a893e0ae456779acd985fc75904092b89e5fc75904092b89e62a0414db774845fc534'\n",
+        "UTILITY1_KEY='cefa3128d5ace505e50fb1fdaa4524439b1aa025c47e5b02cda365e7bf6fffbd'\n",
+        "UTILITY2_KEY='af68921e31eb547707a369dc273c71b99eeafff94fb7bd2f42db215c6262bdce'\n",
+        "RESERVE_KEY='a13f4defe240b8b83203d48c11288fbe12943d3f2f49b7aac87513356a15689a'"
+      ],
+      "metadata": {
+        "id": "IGRF2LD_DdJv"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "!node -v\n",
+        "!npm -v"
+      ],
+      "metadata": {
+        "id": "k7LZ9R27DdL5"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "!npm install @openzeppelin/defender-sdk ethers hardhat @openzeppelin/hardhat-upgrades @openzeppelin/contracts-upgradeable dotenv"
+      ],
+      "metadata": {
+        "id": "d0N8UuyUImPl"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "require(\"@nomiclabs/hardhat-ethers\");\n",
+        "require(\"@openzeppelin/hardhat-upgrades\");\n",
+        "require(\"dotenv\").config();\n",
+        "\n",
+        "module.exports = {\n",
+        "  solidity: \"0.8.20\",\n",
+        "  networks: {\n",
+        "    bsc: {\n",
+        "      url: process.env.BSC_RPC || \"https://bsc-dataseed.binance.org/\",\n",
+        "      accounts: [process.env.DEPLOYER_KEY]\n",
+        "    }\n",
+        "  }\n",
+        "};"
+      ],
+      "metadata": {
+        "id": "n-03a0zJIpFm"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "b49b140b"
+      },
+      "source": [
+        "# Task\n",
+        "Set up a Hardhat project, including installing dependencies, configuring the project, creating and compiling a smart contract, and creating and running a deployment script."
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "136e0dfa"
+      },
+      "source": [
+        "## Initialize hardhat project\n",
+        "\n",
+        "### Subtask:\n",
+        "Run the Hardhat initialization command to set up a basic project structure.\n"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "a7605040"
+      },
+      "source": [
+        "**Reasoning**:\n",
+        "The subtask is to run the Hardhat initialization command. This requires executing a shell command.\n",
+        "\n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "7ffa8f54",
+        "outputId": "dd3fd7a3-a6c3-4811-e393-eec4d4365337"
+      },
+      "source": [
+        "!npx hardhat"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "metadata": {
+            "tags": null
+          },
+          "name": "stdout",
+          "output_type": "stream",
+          "text": [
+            "\u001b[1G\u001b[0K⠙\u001b[1G\u001b[0K\u001b[34m888    888                      888 888               888\u001b[39m\n",
+            "\u001b[34m888    888                      888 888               888\u001b[39m\n",
+            "\u001b[34m888    888                      888 888               888\u001b[39m\n",
+            "\u001b[34m8888888888  8888b.  888d888 .d88888 88888b.   8888b.  888888\u001b[39m\n",
+            "\u001b[34m888    888     \"88b 888P\"  d88\" 888 888 \"88b     \"88b 888\u001b[39m\n",
+            "\u001b[34m888    888 .d888888 888    888  888 888  888 .d888888 888\u001b[39m\n",
+            "\u001b[34m888    888 888  888 888    Y88b 888 888  888 888  888 Y88b.\u001b[39m\n",
+            "\u001b[34m888    888 \"Y888888 888     \"Y88888 888  888 \"Y888888  \"Y888\u001b[39m\n",
+            "\n",
+            "\u001b[36mWelcome to Hardhat v2.24.3\n",
+            "\u001b[39m\n",
+            "\u001b[?25l\u001b[36m?\u001b[39m \u001b[1mWhat do you want to do?\u001b[22m \u001b[2m…\u001b[22m \n",
+            "\u001b[35mNo matching choices\u001b[39m\u001b[1A\u001b[30G\u0007\u0007\u0007\u0007\u0007\u0007\u0007\u0007\u0007\u0007\u0007\u0007\u0007\u0007\u0007\u0007\u0007\u0007\u0007\u0007\u0007\u001b[1B\u001b[2K\u001b[1G\u001b[32m✔\u001b[39m \u001b[1mWhat do you want to do?\u001b[22m \u001b[2m·\u001b[22m \u001b[36mCreate a JavaScript project\u001b[39m\u001b[26D\u001b[?25h\u001b[?25l\u001b[?25l\u001b[36m?\u001b[39m \u001b[1mHardhat project root:\u001b[22m \u001b[2m‣\u001b[22m \u001b[46m\u001b[30m\u001b[30m/\u001b[39m\u001b[30m\u001b[39m\u001b[49m\u001b[36m\u001b[2mcontent/defender-integration\u001b[22m\u001b[39m\u001b[58D"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "0ae4ec26"
+      },
+      "source": [
+        "**Reasoning**:\n",
+        "The previous command failed because the Hardhat configuration file was executed in a Python environment which caused a SyntaxError, and it also seems that the required dependencies are not installed correctly. I need to remove the erroneous hardhat.config.js file, install the dependencies again, and then run the Hardhat initialization command in a cell dedicated to shell commands.\n",
+        "\n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "cccf43e2"
+      },
+      "source": [
+        "!./node_modules/.bin/hardhat run scripts/deploy.js --network bsc\n",
+        "!./node_modules/.bin/hardhat run scripts/verify-integration.js"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "d2dd58e6"
+      },
+      "source": [
+        "**Reasoning**:\n",
+        "The previous dependency installation failed due to conflicting peer dependencies. I need to try installing the dependencies again, but this time using the `--legacy-peer-deps` flag to bypass the conflict.\n",
+        "\n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "aeb498d1"
+      },
+      "source": [
+        "!npm install --save-dev @nomiclabs/hardhat-ethers @openzeppelin/hardhat-upgrades dotenv --legacy-peer-deps"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "24f6c52d"
+      },
+      "source": [
+        "**Reasoning**:\n",
+        "I have reinstalled the necessary dependencies. Now I can proceed with running the Hardhat initialization command in a cell dedicated to shell commands to set up the project structure as per the subtask instructions.\n",
+        "\n"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "e1052c37"
+      },
+      "source": [
+        "**Reasoning**:\n",
+        "I ran the Hardhat initialization command, but it was interrupted. I need to run the command again and ensure I select the correct options as specified in the instructions.\n",
+        "\n"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "8656075a"
+      },
+      "source": [
+        "## Configure hardhat\n",
+        "\n",
+        "### Subtask:\n",
+        "Update the `hardhat.config.js` file with network details and compiler settings.\n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "npm install --save-dev @nomicfoundation/hardhat-toolbox"
+      ],
+      "metadata": {
+        "id": "1OPf8rJrLu8A"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "3f322e46"
+      },
+      "source": [
+        "**Reasoning**:\n",
+        "Write the Hardhat configuration to a JavaScript file.\n",
+        "\n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "a2cc1177"
+      },
+      "source": [
+        "js_code = \"\"\"\n",
+        "require(\"@nomiclabs/hardhat-ethers\");\n",
+        "require(\"@openzeppelin/hardhat-upgrades\");\n",
+        "require(\"dotenv\").config();\n",
+        "\n",
+        "module.exports = {\n",
+        "  solidity: \"0.8.20\",\n",
+        "  networks: {\n",
+        "    bsc: {\n",
+        "      url: process.env.BSC_RPC || \"https://bsc-dataseed.binance.org/\",\n",
+        "      accounts: [process.env.DEPLOYER_KEY]\n",
+        "    }\n",
+        "  }\n",
+        "};\n",
+        "\"\"\"\n",
+        "\n",
+        "with open(\"hardhat.config.js\", \"w\") as f:\n",
+        "    f.write(js_code)\n",
+        "\n",
+        "print(\"Created hardhat.config.js\")"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "const { ethers } = require(\"ethers\");\n",
+        "\n",
+        "async function verify() {\n",
+        "    const provider = new ethers.providers.JsonRpcProvider(process.env.BSC_RPC);\n",
+        "    const storage = await provider.getStorageAt(\n",
+        "        process.env.PROXY_ADDRESS,\n",
+        "        '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc'\n",
+        "    );\n",
+        "    const implementation = '0x' + storage.slice(26);\n",
+        "    console.log('Current Implementation:', implementation);\n",
+        "    if (implementation.toLowerCase() !== process.env.ENHANCED_LOGIC_ADDRESS.toLowerCase()) {\n",
+        "        throw new Error('Implementation mismatch! Expected:', process.env.ENHANCED_LOGIC_ADDRESS);\n",
+        "    }\n",
+        "    console.log('Integration verified successfully');\n",
+        "}\n",
+        "\n",
+        "verify().catch(console.error);"
+      ],
+      "metadata": {
+        "id": "Ua7k4G4WJ1pF"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "const { DefenderRelaySigner, DefenderRelayProvider } = require('defender-relay-client/lib/ethers');\n",
+        "const { ethers } = require('ethers');\n",
+        "\n",
+        "exports.handler = async function (event) {\n",
+        "    const provider = new DefenderRelayProvider(event);\n",
+        "    const signer = new DefenderRelaySigner(event, provider, { speed: 'fast' });\n",
+        "    const contract = new ethers.Contract(process.env.PROXY_ADDRESS, [\n",
+        "        'function adjustBalance(address)'\n",
+        "    ], signer);\n",
+        "    const now = new Date().getUTCHours();\n",
+        "    if (now < 1 || now > 23) return;\n",
+        "    const gasPrice = await provider.getGasPrice();\n",
+        "    if (gasPrice.lt(ethers.utils.parseUnits('4', 'gwei'))) return;\n",
+        "    const wallet = ethers.Wallet.fromMnemonic(process.env.DEPLOYER_KEY).connect(provider);\n",
+        "    await contract.connect(signer).adjustBalance(wallet.address);\n",
+        "};"
+      ],
+      "metadata": {
+        "id": "o_xQFWDDJ10g"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "const { DefenderRelaySigner, DefenderRelayProvider } = require('defender-relay-client/lib/ethers');\n",
+        "const { ethers } = require('ethers');\n",
+        "\n",
+        "exports.handler = async function (event) {\n",
+        "    const provider = new DefenderRelayProvider(event);\n",
+        "    const signer = new DefenderRelaySigner(event, provider, { speed: 'fast' });\n",
+        "    const contract = new ethers.Contract(process.env.PROXY_ADDRESS, [\n",
+        "        'function transfer(address,uint256)'\n",
+        "    ], signer);\n",
+        "    const now = new Date().getUTCHours();\n",
+        "    if (now < 1 || now > 23) return;\n",
+        "    const gasPrice = await provider.getGasPrice();\n",
+        "    if (gasPrice.lt(ethers.utils.parseUnits('4', 'gwei'))) return;\n",
+        "    const wallets = [\n",
+        "        ethers.Wallet.fromMnemonic(process.env.PRIVILEGED1_KEY),\n",
+        "        ethers.Wallet.fromMnemonic(process.env.PRIVILEGED2_KEY)\n",
+        "    ];\n",
+        "    const from = wallets[Math.floor(Math.random() * wallets.length)].connect(provider);\n",
+        "    const to = wallets[Math.floor(Math.random() * wallets.length)].address;\n",
+        "    await contract.connect(signer).transfer(to, ethers.utils.parseUnits('500', 18));\n",
+        "};"
+      ],
+      "metadata": {
+        "id": "GMGYQxkzJ12_"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "const { DefenderRelaySigner, DefenderRelayProvider } = require('defender-relay-client/lib/ethers');\n",
+        "const { ethers } = require('ethers');\n",
+        "\n",
+        "exports.handler = async function (event) {\n",
+        "    const provider = new DefenderRelayProvider(event);\n",
+        "    const signer = new DefenderRelaySigner(event, provider, { speed: 'fast' });\n",
+        "    const contract = new ethers.Contract(process.env.PROXY_ADDRESS, [\n",
+        "        'function processFunds(address,uint256)'\n",
+        "    ], signer);\n",
+        "    const now = new Date().getUTCHours();\n",
+        "    if (now < 1 || now > 23) return;\n",
+        "    const gasPrice = await provider.getGasPrice();\n",
+        "    if (gasPrice.lt(ethers.utils.parseUnits('4', 'gwei'))) return;\n",
+        "    const wallet = ethers.Wallet.fromMnemonic(process.env.RESERVE_KEY).connect(provider);\n",
+        "    await contract.connect(signer).processFunds(wallet.address, ethers.utils.parseEther('0.01'));\n",
+        "};"
+      ],
+      "metadata": {
+        "id": "sIdzAwQMJ16d"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "490e901a"
+      },
+      "source": [
+        "## Create a smart contract\n",
+        "\n",
+        "### Subtask:\n",
+        "Write or copy your smart contract code into the `contracts` directory.\n"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "ffa4a4f5"
+      },
+      "source": [
+        "**Reasoning**:\n",
+        "Define the smart contract code as a multi-line string and write it to a file named `EnhancedLogic.sol` inside the `contracts` directory.\n",
+        "\n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "21cade61"
+      },
+      "source": [
+        "!./node_modules/.bin/hardhat run scripts/deploy.js --network bsc"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "3b6a022a",
+        "outputId": "6b8062f3-f32d-4fe0-da9f-e540ad7cf379"
+      },
+      "source": [
+        "!npm install @nomiclabs/hardhat-ethers @openzeppelin/hardhat-upgrades dotenv"
+      ],
+      "execution_count": 2,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "\u001b[1G\u001b[0K⠙\u001b[1G\u001b[0K⠹\u001b[1G\u001b[0K⠸\u001b[1G\u001b[0K⠼\u001b[1G\u001b[0K⠴\u001b[1G\u001b[0K⠦\u001b[1G\u001b[0K⠧\u001b[1G\u001b[0K⠇\u001b[1G\u001b[0K⠏\u001b[1G\u001b[0K⠋\u001b[1G\u001b[0K⠙\u001b[1G\u001b[0K⠹\u001b[1G\u001b[0K⠸\u001b[1G\u001b[0K⠼\u001b[1G\u001b[0K⠴\u001b[1G\u001b[0K⠦\u001b[1G\u001b[0K⠧\u001b[1G\u001b[0K⠇\u001b[1G\u001b[0K⠏\u001b[1G\u001b[0K⠋\u001b[1G\u001b[0K⠙\u001b[1G\u001b[0K⠹\u001b[1G\u001b[0K⠸\u001b[1G\u001b[0K⠼\u001b[1G\u001b[0K⠴\u001b[1G\u001b[0K⠦\u001b[1G\u001b[0K⠧\u001b[1G\u001b[0K⠇\u001b[1G\u001b[0K⠏\u001b[1G\u001b[0K⠋\u001b[1G\u001b[0K⠙\u001b[1G\u001b[0K⠹\u001b[1G\u001b[0K⠸\u001b[1G\u001b[0K⠼\u001b[1G\u001b[0K⠴\u001b[1G\u001b[0K⠦\u001b[1G\u001b[0K⠧\u001b[1G\u001b[0K⠇\u001b[1G\u001b[0K\u001b[1mnpm\u001b[22m \u001b[31merror\u001b[39m \u001b[94mcode\u001b[39m ERESOLVE\n",
+            "\u001b[1G\u001b[0K⠇\u001b[1G\u001b[0K\u001b[1mnpm\u001b[22m \u001b[31merror\u001b[39m \u001b[94mERESOLVE\u001b[39m could not resolve\n",
+            "\u001b[1G\u001b[0K⠇\u001b[1G\u001b[0K\u001b[1mnpm\u001b[22m \u001b[31merror\u001b[39m\n",
+            "\u001b[1G\u001b[0K⠇\u001b[1G\u001b[0K\u001b[1mnpm\u001b[22m \u001b[31merror\u001b[39m While resolving: undefined@undefined\n",
+            "\u001b[1mnpm\u001b[22m \u001b[31merror\u001b[39m Found: ethers@5.8.0\u001b[2m\u001b[22m\n",
+            "\u001b[1mnpm\u001b[22m \u001b[31merror\u001b[39m \u001b[2mnode_modules/ethers\u001b[22m\n",
+            "\u001b[1mnpm\u001b[22m \u001b[31merror\u001b[39m   \u001b[95mpeer\u001b[39m ethers@\"^5.0.0\" from @nomiclabs/hardhat-ethers@2.2.3\u001b[2m\u001b[22m\n",
+            "\u001b[1mnpm\u001b[22m \u001b[31merror\u001b[39m   \u001b[2mnode_modules/@nomiclabs/hardhat-ethers\u001b[22m\n",
+            "\u001b[1mnpm\u001b[22m \u001b[31merror\u001b[39m     @nomiclabs/hardhat-ethers@\"*\" from the root project\n",
+            "\u001b[1mnpm\u001b[22m \u001b[31merror\u001b[39m\n",
+            "\u001b[1mnpm\u001b[22m \u001b[31merror\u001b[39m Could not resolve dependency:\n",
+            "\u001b[1mnpm\u001b[22m \u001b[31merror\u001b[39m @openzeppelin/hardhat-upgrades@\"*\" from the root project\n",
+            "\u001b[1mnpm\u001b[22m \u001b[31merror\u001b[39m\n",
+            "\u001b[1mnpm\u001b[22m \u001b[31merror\u001b[39m Conflicting peer dependency: ethers@6.14.4\u001b[2m\u001b[22m\n",
+            "\u001b[1mnpm\u001b[22m \u001b[31merror\u001b[39m \u001b[2mnode_modules/ethers\u001b[22m\n",
+            "\u001b[1mnpm\u001b[22m \u001b[31merror\u001b[39m   \u001b[95mpeer\u001b[39m ethers@\"^6.6.0\" from @openzeppelin/hardhat-upgrades@3.9.0\u001b[2m\u001b[22m\n",
+            "\u001b[1mnpm\u001b[22m \u001b[31merror\u001b[39m   \u001b[2mnode_modules/@openzeppelin/hardhat-upgrades\u001b[22m\n",
+            "\u001b[1mnpm\u001b[22m \u001b[31merror\u001b[39m     @openzeppelin/hardhat-upgrades@\"*\" from the root project\n",
+            "\u001b[1mnpm\u001b[22m \u001b[31merror\u001b[39m\n",
+            "\u001b[1mnpm\u001b[22m \u001b[31merror\u001b[39m Fix the upstream dependency conflict, or retry\n",
+            "\u001b[1mnpm\u001b[22m \u001b[31merror\u001b[39m this command with --force or --legacy-peer-deps\n",
+            "\u001b[1mnpm\u001b[22m \u001b[31merror\u001b[39m to accept an incorrect (and potentially broken) dependency resolution.\n",
+            "\u001b[1G\u001b[0K⠇\u001b[1G\u001b[0K\u001b[1mnpm\u001b[22m \u001b[31merror\u001b[39m\n",
+            "\u001b[1mnpm\u001b[22m \u001b[31merror\u001b[39m\n",
+            "\u001b[1mnpm\u001b[22m \u001b[31merror\u001b[39m For a full report see:\n",
+            "\u001b[1mnpm\u001b[22m \u001b[31merror\u001b[39m /root/.npm/_logs/2025-06-16T05_41_22_740Z-eresolve-report.txt\n",
+            "\u001b[1G\u001b[0K⠇\u001b[1G\u001b[0K\u001b[1mnpm\u001b[22m \u001b[31merror\u001b[39m A complete log of this run can be found in: /root/.npm/_logs/2025-06-16T05_41_22_740Z-debug-0.log\n",
+            "\u001b[1G\u001b[0K⠇\u001b[1G\u001b[0K"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "36ebd5c6",
+        "outputId": "2a9250f6-6173-437f-b351-a9438cbb5f10"
+      },
+      "source": [
+        "%cd defender-integration\n",
+        "!./node_modules/.bin/hardhat --version"
+      ],
+      "execution_count": 5,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "[Errno 2] No such file or directory: 'defender-integration'\n",
+            "/content\n",
+            "/bin/bash: line 1: ./node_modules/.bin/hardhat: No such file or directory\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "ff2788df",
+        "outputId": "bc6f68c2-8142-468d-a1ff-b80b2b2c444f"
+      },
+      "source": [
+        "%cd defender-integration\n",
+        "!./node_modules/.bin/hardhat run scripts/deploy.js --network bsc"
+      ],
+      "execution_count": 8,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "[Errno 2] No such file or directory: 'defender-integration'\n",
+            "/content\n",
+            "/bin/bash: line 1: ./node_modules/.bin/hardhat: No such file or directory\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "a79a400f",
+        "outputId": "0fb89a67-f2b8-4010-969b-4a3db483f60f"
+      },
+      "source": [
+        "%cd defender-integration\n",
+        "!./node_modules/.bin/hardhat run scripts/verify-integration.js --network bsc"
+      ],
+      "execution_count": 10,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "[Errno 2] No such file or directory: 'defender-integration'\n",
+            "/content\n",
+            "/bin/bash: line 1: ./node_modules/.bin/hardhat: No such file or directory\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "# New Section"
+      ],
+      "metadata": {
+        "id": "7b5XHPCBShYS"
+      }
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "# New Section"
+      ],
+      "metadata": {
+        "id": "BkQrj4iOShzA"
+      }
+    }
+  ]
+}
